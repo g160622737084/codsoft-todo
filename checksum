@@ -1,0 +1,32 @@
+#include<pcap.h>
+#include<stdio.h>
+#include<stdint.h>
+#include<netinet/ip.h>
+#include<netinet/tcp.h>
+#include<netinet/udp.h>
+void packet_handler(u_char *user_data, const struct pcap_pkthdr *header, const u_char *packet) 
+{
+    struct ip *ip_header = (struct ip *)(packet + 14);  
+    if (ip_header->ip_p == IPPROTO_TCP) {
+        struct tcphdr*tcp_header = (struct tcphdr *)(packet + 14 + ip_header->ip_hl * 4);
+        printf("TCP Checksum: 0x%x\n", ntohs(tcp_header->th_sum));
+    } else if (ip_header->ip_p == IPPROTO_UDP) {
+        struct udphdr *udp_header = (struct udphdr *)(packet + 14 + ip_header->ip_hl * 4); 
+        printf("UDP Checksum: 0x%x\n", ntohs(udp_header->uh_sum));
+    }
+}
+int main() {
+    char errbuf[PCAP_ERRBUF_SIZE]; 
+    pcap_t *handle;
+    handle = pcap_open_live("eth0", BUFSIZ, 1, 1000, errbuf);
+    if (handle == NULL) {
+        fprintf(stderr, "Error opening device: %s\n", errbuf);
+        return 1;
+    }
+    if (pcap_loop(handle, 0, packet_handler, NULL) < 0) {
+        fprintf(stderr, "Error capturing packets: %s\n", pcap_geterr(handle));
+        return 1;
+    }
+    pcap_close(handle);
+    return 0;
+}
